@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        perl: ['5.40', '5.38', '5.36', '5.34', '5.32', '5.28', '5.24', '5.20']
+    name: Linux / Perl ${{ matrix.perl }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+      - name: Install memcached
+        run: sudo apt-get update && sudo apt-get install -y memcached
+      - name: Start memcached
+        run: memcached -d -p 18211 -U 0 -P /tmp/mc.pid
+      - name: Install deps
+        run: cpanm -n EV
+      - name: Build
+        run: perl Makefile.PL && make
+      - name: Test
+        run: TEST_MEMCACHED_PORT=18211 make test
+
+  macos:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        perl: ['5.40', '5.36']
+    name: macOS / Perl ${{ matrix.perl }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: ${{ matrix.perl }}
+      - name: Install memcached
+        run: brew install memcached
+      - name: Start memcached
+        run: memcached -d -p 18211 -U 0 -P /tmp/mc.pid
+      - name: Install deps
+        run: cpanm -n EV
+      - name: Build
+        run: perl Makefile.PL && make
+      - name: Test
+        run: TEST_MEMCACHED_PORT=18211 make test
+
+  freebsd:
+    runs-on: ubuntu-latest
+    name: FreeBSD / Perl (system)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y perl5 p5-EV memcached gmake
+          run: |
+            memcached -u root -d -p 18211 -U 0 -P /tmp/mc.pid
+            perl Makefile.PL && gmake
+            TEST_MEMCACHED_PORT=18211 gmake test

@@ -1,0 +1,13 @@
+/blib/
+/Makefile
+/Makefile.old
+/MANIFEST.bak
+/MYMETA.*
+/Memcached.bs
+/Memcached.c
+/Memcached.o
+/Memcached.so
+/Memcached.xs
+/pm_to_blib
+*.tar.gz
+/_Inline/
