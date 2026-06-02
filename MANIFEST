@@ -37,4 +37,5 @@ t/04_features.t
 t/05_leak.t
 t/06_edge_cases.t
 t/07_sasl.t
+t/08_command_timeout.t
 typemap
