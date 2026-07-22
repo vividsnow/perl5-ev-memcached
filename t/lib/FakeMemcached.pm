@@ -2,6 +2,7 @@ package FakeMemcached;
 use strict;
 use warnings;
 use IO::Socket::UNIX;
+use File::Temp ();
 
 # Scripted fake binary-protocol memcached on a unix socket, so tests can
 # exercise server behavior without a real memcached.
@@ -23,8 +24,15 @@ use IO::Socket::UNIX;
 sub new {
     my ($class, %arg) = @_;
     my $script = $arg{script} or die "FakeMemcached: script required";
-    my $path = $arg{path}
-        // "/tmp/claude-1000/evmc-fake-$$-" . int(rand(1_000_000)) . ".sock";
+    my ($path, $dir) = ($arg{path});
+    if (!defined $path) {
+        # no CLEANUP: its END hook would also fire in the forked child
+        # and remove the dir while the parent still uses it
+        $dir = File::Temp::tempdir('evmc-XXXXXX', TMPDIR => 1);
+        $path = "$dir/mc.sock";
+        die "FakeMemcached: socket path too long for sun_path: $path"
+            if length($path) > 100;
+    }
     unlink $path;
     my $listen = IO::Socket::UNIX->new(Local => $path, Listen => 5, Type => SOCK_STREAM)
         or die "FakeMemcached: listen $path: $!";
@@ -35,7 +43,7 @@ sub new {
         exit 0;
     }
     $listen->close;
-    return bless { path => $path, pid => $pid }, $class;
+    return bless { path => $path, dir => $dir, pid => $pid }, $class;
 }
 
 sub path { $_[0]{path} }
@@ -54,6 +62,9 @@ sub finish {
     }
     if (my $path = delete $self->{path}) {
         unlink $path;
+    }
+    if (my $dir = delete $self->{dir}) {
+        rmdir $dir;
     }
 }
 
